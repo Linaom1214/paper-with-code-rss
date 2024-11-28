@@ -43,5 +43,9 @@ def index():
             }
             for p in papers if len(p["title"]) > 10
         ],
+        "follow_challenge": {
+            "feed_id": "84899448763345920",
+            "user_id": "55153944803890176"
+          }
     }
     return jsonify(feed)
