@@ -25,29 +25,9 @@ def index():
     soup = BeautifulSoup(data, "html.parser")
 
     papers = []
-    # Find all paper cards
-    for paper_card in soup.find_all("div", class_="paper-card"):
-        title_tag = paper_card.find("h1")
-        if title_tag:
-            title = title_tag.text.strip()
-            paper_url = title_tag.find("a")["href"]
-
-            # Extract GitHub link
-            github_link_tag = paper_card.find("span", class_="item-github-link")
-            github_link = github_link_tag.find("a")["href"] if github_link_tag else None
-            
-            # Get the full URL for the paper
-            full_paper_url = urljoin(BASE_URL, paper_url)
-
-            # Fetch the detailed abstract from the secondary page
-            abstract = fetch_abstract(full_paper_url)
-
-            papers.append({
-                "title": title,
-                "url": full_paper_url,
-                "github": github_link,
-                "abstract": abstract
-            })
+    for a in soup.find_all("a", href=True):
+        if "/paper/" in a["href"]:
+            papers.append({"title": a.text.strip(), "url": a["href"]})
 
     feed = {
         "version": "https://jsonfeed.org/version/1",
@@ -58,38 +38,14 @@ def index():
             {
                 "id": "https://paperswithcode.com" + p["url"],
                 "title": p["title"],
-                "content_text": p["abstract"],
+                "content_text": p["title"],
                 "url": "https://paperswithcode.com" + p["url"],
-                "github": p["github"]
             }
             for p in papers if len(p["title"]) > 10
         ],
         "follow_challenge": {
             "feed_id": "84899448763345920",
             "user_id": "55153944803890176"
-        }
+          }
     }
-
     return jsonify(feed)
-
-def fetch_abstract(paper_url):
-    try:
-        response = requests.get(paper_url, timeout=5)
-        if response.status_code == 200:
-            data = response.text
-            soup = BeautifulSoup(data, "html.parser")
-            # Extract the abstract from the designated section
-            abstract_tag = soup.find("div", class_="paper-abstract")
-            if abstract_tag:
-                # The abstract is within a <p> tag inside the div
-                abstract_paragraph = abstract_tag.find("p")
-                return abstract_paragraph.text.strip() if abstract_paragraph else "Abstract not found."
-            else:
-                return "Abstract section not found."
-        else:
-            return "Failed to retrieve abstract."
-    except requests.RequestException:
-        return "Request to paper page failed."
-
-if __name__ == "__main__":
-    app.run(debug=True)
