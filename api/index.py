@@ -39,13 +39,13 @@ def index():
             github_link = github_link_tag.find("a")["href"] if github_link_tag else None
             
             # Get the full URL for the paper (assuming it is an arXiv link)
-            full_paper_url = urljoin(ARXIV_BASE_URL, paper_url)
+            full_paper_url = urljoin(BASE_URL, paper_url)
 
             # Fetch the abstract from Papers with Code
-            abstract = fetch_abstract(paper_card)
+            abstract, arxiv_url = fetch_abstract(paper_card)
 
             # Fetch images from the arXiv PDF HTML preview
-            images = fetch_images_from_arxiv_html(full_paper_url)
+            images = fetch_images_from_arxiv_html(arxiv_url)
 
             papers.append({
                 "title": title,
@@ -90,7 +90,8 @@ def fetch_abstract(paper_url):
             if abstract_tag:
                 # The abstract is within a <p> tag inside the div
                 abstract_paragraph = abstract_tag.find("p")
-                return abstract_paragraph.text.strip() if abstract_paragraph else "Abstract not found."
+                arxiv_url = abstract_tag.find("a")["href"][0]].strip(".pdf)
+                return abstract_paragraph.text.strip(), arxiv_url  if abstract_paragraph else "Abstract not found.", None
             else:
                 return "Abstract section not found."
         else:
@@ -100,7 +101,7 @@ def fetch_abstract(paper_url):
 
 def fetch_images_from_arxiv_html(paper_url):
     # Construct the corresponding HTML preview URL
-    html_preview_url = paper_url.replace("html", "pdf")  # Adjust based on actual URL structure
+    html_preview_url = paper_url.replace("pdf", "html")  # Adjust based on actual URL structure
     try:
         response = requests.get(html_preview_url, timeout=5)
         if response.status_code == 200:
