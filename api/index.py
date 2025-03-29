@@ -39,7 +39,7 @@ def index():
             github_link = github_link_tag.find("a")["href"] if github_link_tag else None
             
             # Get the full URL for the paper (assuming it is an arXiv link)
-            full_paper_url = urljoin(ARXIV_BASE_URL, paper_url.replace("/pdf/", "/").replace(".pdf", ""))
+            full_paper_url = urljoin(ARXIV_BASE_URL, paper_url)
 
             # Fetch the abstract from Papers with Code
             abstract = fetch_abstract(paper_card)
