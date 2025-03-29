@@ -38,18 +38,15 @@ def index():
             github_link_tag = paper_card.find("span", class_="item-github-link")
             github_link = github_link_tag.find("a")["href"] if github_link_tag else None
             
-            # Get the full URL for the paper (assuming it is an arXiv link)
-            full_paper_url = urljoin(BASE_URL, paper_url)
-
             # Fetch the abstract from Papers with Code
-            abstract, arxiv_url = fetch_abstract(paper_card)
+            abstract, arxiv_url = fetch_abstract(paper_url)
 
             # Fetch images from the arXiv PDF HTML preview
             images = fetch_images_from_arxiv_html(arxiv_url)
 
             papers.append({
                 "title": title,
-                "url": full_paper_url,
+                "url": paper_url,
                 "github": github_link,
                 "abstract": abstract,
                 "images": images
@@ -90,14 +87,14 @@ def fetch_abstract(paper_url):
             if abstract_tag:
                 # The abstract is within a <p> tag inside the div
                 abstract_paragraph = abstract_tag.find("p")
-                arxiv_url = abstract_tag.find("a")["href"][0]].strip(".pdf)
-                return abstract_paragraph.text.strip(), arxiv_url  if abstract_paragraph else "Abstract not found.", None
+                arxiv_url = abstract_tag.find("a")["href"].strip(".pdf") if abstract_tag.find("a") else None
+                return abstract_paragraph.text.strip() if abstract_paragraph else "Abstract not found.", arxiv_url
             else:
-                return "Abstract section not found."
+                return "Abstract section not found.", None
         else:
-            return "Failed to retrieve abstract."
+            return "Failed to retrieve abstract.", None
     except requests.RequestException:
-        return "Request to paper page failed."
+        return "Request to paper page failed.", None
 
 def fetch_images_from_arxiv_html(paper_url):
     # Construct the corresponding HTML preview URL
@@ -114,7 +111,7 @@ def fetch_images_from_arxiv_html(paper_url):
                 img_tag = figure.find("img")
                 if img_tag and img_tag.has_attr("src"):
                     img_src = img_tag["src"]
-                    img_url = urljoin(paper_url, img_src)
+                    img_url = urljoin(html_preview_url, img_src)
                     images.append(img_url)
 
             return images
