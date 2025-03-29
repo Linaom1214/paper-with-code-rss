@@ -25,9 +25,27 @@ def index():
     soup = BeautifulSoup(data, "html.parser")
 
     papers = []
-    for a in soup.find_all("a", href=True):
-        if "/paper/" in a["href"]:
-            papers.append({"title": a.text.strip(), "url": a["href"]})
+    # Find all paper cards
+    for paper_card in soup.find_all("div", class_="paper-card"):
+        title_tag = paper_card.find("h1")
+        if title_tag:
+            title = title_tag.text.strip()
+            paper_url = title_tag.find("a")["href"]
+
+            # Extract GitHub link
+            github_link_tag = paper_card.find("span", class_="item-github-link")
+            github_link = github_link_tag.find("a")["href"] if github_link_tag else None
+
+            # Extract abstract
+            abstract_tag = paper_card.find("p", class_="item-strip-abstract")
+            abstract = abstract_tag.text.strip() if abstract_tag else ""
+
+            papers.append({
+                "title": title,
+                "url": urljoin(BASE_URL, paper_url),
+                "github": github_link,
+                "abstract": abstract
+            })
 
     feed = {
         "version": "https://jsonfeed.org/version/1",
@@ -38,14 +56,19 @@ def index():
             {
                 "id": "https://paperswithcode.com" + p["url"],
                 "title": p["title"],
-                "content_text": p["title"],
+                "content_text": p["abstract"],
                 "url": "https://paperswithcode.com" + p["url"],
+                "github": p["github"]
             }
             for p in papers if len(p["title"]) > 10
         ],
         "follow_challenge": {
             "feed_id": "84899448763345920",
             "user_id": "55153944803890176"
-          }
+        }
     }
+    
     return jsonify(feed)
+
+if __name__ == "__main__":
+    app.run(debug=True)
