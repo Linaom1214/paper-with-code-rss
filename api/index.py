@@ -35,14 +35,16 @@ def index():
             # Extract GitHub link
             github_link_tag = paper_card.find("span", class_="item-github-link")
             github_link = github_link_tag.find("a")["href"] if github_link_tag else None
+            
+            # Get the full URL for the paper
+            full_paper_url = urljoin(BASE_URL, paper_url)
 
-            # Extract abstract
-            abstract_tag = paper_card.find("p", class_="item-strip-abstract")
-            abstract = abstract_tag.text.strip() if abstract_tag else ""
+            # Fetch the detailed abstract from the secondary page
+            abstract = fetch_abstract(full_paper_url)
 
             papers.append({
                 "title": title,
-                "url": urljoin(BASE_URL, paper_url),
+                "url": full_paper_url,
                 "github": github_link,
                 "abstract": abstract
             })
@@ -67,8 +69,27 @@ def index():
             "user_id": "55153944803890176"
         }
     }
-    
+
     return jsonify(feed)
+
+def fetch_abstract(paper_url):
+    try:
+        response = requests.get(paper_url, timeout=5)
+        if response.status_code == 200:
+            data = response.text
+            soup = BeautifulSoup(data, "html.parser")
+            # Extract the abstract from the designated section
+            abstract_tag = soup.find("div", class_="paper-abstract")
+            if abstract_tag:
+                # The abstract is within a <p> tag inside the div
+                abstract_paragraph = abstract_tag.find("p")
+                return abstract_paragraph.text.strip() if abstract_paragraph else "Abstract not found."
+            else:
+                return "Abstract section not found."
+        else:
+            return "Failed to retrieve abstract."
+    except requests.RequestException:
+        return "Request to paper page failed."
 
 if __name__ == "__main__":
     app.run(debug=True)
