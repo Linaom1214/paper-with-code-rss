@@ -79,9 +79,24 @@ def index():
 
     return jsonify(feed)
 
-def fetch_abstract(paper_card):
-    abstract_tag = paper_card.find("p", class_="paper-abstract")
-    return abstract_tag.text.strip() if abstract_tag else "Abstract not found."
+def fetch_abstract(paper_url):
+    try:
+        response = requests.get(paper_url, timeout=5)
+        if response.status_code == 200:
+            data = response.text
+            soup = BeautifulSoup(data, "html.parser")
+            # Extract the abstract from the designated section
+            abstract_tag = soup.find("div", class_="paper-abstract")
+            if abstract_tag:
+                # The abstract is within a <p> tag inside the div
+                abstract_paragraph = abstract_tag.find("p")
+                return abstract_paragraph.text.strip() if abstract_paragraph else "Abstract not found."
+            else:
+                return "Abstract section not found."
+        else:
+            return "Failed to retrieve abstract."
+    except requests.RequestException:
+        return "Request to paper page failed."
 
 def fetch_images_from_arxiv_html(paper_url):
     # Construct the corresponding HTML preview URL
