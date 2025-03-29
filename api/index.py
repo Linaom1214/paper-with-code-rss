@@ -6,6 +6,8 @@ from urllib.parse import urljoin
 app = Flask(__name__)
 
 BASE_URL = "https://paperswithcode.com/"
+ARXIV_BASE_URL = "https://arxiv.org/html/"
+PDF_PREVIEW_BASE_URL = "https://arxiv.org/pdf/"
 
 @app.route("/")
 def index():
@@ -36,17 +38,21 @@ def index():
             github_link_tag = paper_card.find("span", class_="item-github-link")
             github_link = github_link_tag.find("a")["href"] if github_link_tag else None
             
-            # Get the full URL for the paper
-            full_paper_url = urljoin(BASE_URL, paper_url)
+            # Get the full URL for the paper (assuming it is an arXiv link)
+            full_paper_url = urljoin(ARXIV_BASE_URL, paper_url.replace("/pdf/", "/").replace(".pdf", ""))
 
-            # Fetch the detailed abstract from the secondary page
-            abstract = fetch_abstract(full_paper_url)
+            # Fetch the abstract from Papers with Code
+            abstract = fetch_abstract(paper_card)
+
+            # Fetch images from the arXiv PDF HTML preview
+            images = fetch_images_from_arxiv_html(full_paper_url)
 
             papers.append({
                 "title": title,
                 "url": full_paper_url,
                 "github": github_link,
-                "abstract": abstract
+                "abstract": abstract,
+                "images": images
             })
 
     feed = {
@@ -60,7 +66,8 @@ def index():
                 "title": p["title"],
                 "content_text": p["abstract"],
                 "url": "https://paperswithcode.com" + p["url"],
-                "github": p["github"]
+                "github": p["github"],
+                "images": p["images"]
             }
             for p in papers if len(p["title"]) > 10
         ],
@@ -72,24 +79,33 @@ def index():
 
     return jsonify(feed)
 
-def fetch_abstract(paper_url):
+def fetch_abstract(paper_card):
+    abstract_tag = paper_card.find("p", class_="paper-abstract")
+    return abstract_tag.text.strip() if abstract_tag else "Abstract not found."
+
+def fetch_images_from_arxiv_html(paper_url):
+    # Construct the corresponding HTML preview URL
+    html_preview_url = paper_url.replace("html", "pdf")  # Adjust based on actual URL structure
     try:
-        response = requests.get(paper_url, timeout=5)
+        response = requests.get(html_preview_url, timeout=5)
         if response.status_code == 200:
             data = response.text
             soup = BeautifulSoup(data, "html.parser")
-            # Extract the abstract from the designated section
-            abstract_tag = soup.find("div", class_="paper-abstract")
-            if abstract_tag:
-                # The abstract is within a <p> tag inside the div
-                abstract_paragraph = abstract_tag.find("p")
-                return abstract_paragraph.text.strip() if abstract_paragraph else "Abstract not found."
-            else:
-                return "Abstract section not found."
+
+            # Extract images from the figure tags
+            images = []
+            for figure in soup.find_all("figure"):
+                img_tag = figure.find("img")
+                if img_tag and img_tag.has_attr("src"):
+                    img_src = img_tag["src"]
+                    img_url = urljoin(paper_url, img_src)
+                    images.append(img_url)
+
+            return images
         else:
-            return "Failed to retrieve abstract."
+            return []
     except requests.RequestException:
-        return "Request to paper page failed."
+        return []
 
 if __name__ == "__main__":
     app.run(debug=True)
