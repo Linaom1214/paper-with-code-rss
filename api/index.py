@@ -2,38 +2,39 @@ import requests
 from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify
 from urllib.parse import urljoin
-
+import re
 app = Flask(__name__)
-
 BASE_URL = "https://paperswithcode.com/"
-
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+}
 @app.route("/")
 def index():
     url = request.args.get("url")
-    if not url:
-        return jsonify({"error": "Invalid URL"}), 400
-
+    if not url or not re.match(r'^[\w\-/\.]+$', url):
+        return jsonify({"error": "Invalid URL parameter"}), 400
     try:
-        response = requests.get(urljoin(BASE_URL, url), timeout=5)
-    except requests.RequestException:
-        return jsonify({"error": "Request failed"}), 400
-
-    if response.status_code != 200:
-        return jsonify({"error": "Invalid URL"}), 400
-
-    data = response.text
-    soup = BeautifulSoup(data, "html.parser")
-
+        response = requests.get(urljoin(BASE_URL, url), headers=HEADERS, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        return jsonify({"error": f"Request failed: {str(e)}"}), 400
+    soup = BeautifulSoup(response.text, "html.parser")
+    # Deduplicate papers
+    seen_urls = set()
     papers = []
+    
     for a in soup.find_all("a", href=True):
-        if "/paper/" in a["href"]:
-            papers.append({"title": a.text.strip(), "url": a["href"]})
-
+        href = a["href"]
+        if "/paper/" in href and href not in seen_urls and a.text.strip():
+            seen_urls.add(href)
+            title = a.text.strip()
+            if len(title) > 10:  # Filter out likely non-paper links
+                papers.append({"title": title, "url": href})
     feed = {
         "version": "https://jsonfeed.org/version/1",
         "title": f"Papers with Code ({url})",
         "home_page_url": urljoin(BASE_URL, url),
-        "feed_url": "https://example.org/feed.json",
+        "feed_url": request.url,
         "items": [
             {
                 "id": "https://paperswithcode.com" + p["url"],
@@ -41,11 +42,7 @@ def index():
                 "content_text": p["title"],
                 "url": "https://paperswithcode.com" + p["url"],
             }
-            for p in papers if len(p["title"]) > 10
-        ],
-        "follow_challenge": {
-            "feed_id": "84899448763345920",
-            "user_id": "55153944803890176"
-          }
+            for p in papers
+        ]
     }
     return jsonify(feed)
